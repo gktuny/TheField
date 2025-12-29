@@ -83,10 +83,11 @@ if prompt := st.chat_input("..."):
             full_response = ""
             
             # Stream (Akış) modunu kapalı tutuyoruz, direkt cevap alıyoruz
-            completion = client.chat.completions.create(
-                model="llama3-8b-8192",
+           completion = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
                 messages=st.session_state.messages,
-                temperature=0.7
+                temperature=0.6
+            )
             )
             full_response = completion.choices[0].message.content
             
@@ -98,3 +99,4 @@ if prompt := st.chat_input("..."):
         
     except Exception as e:
         st.error(f"Kırılma: {e}")
+
