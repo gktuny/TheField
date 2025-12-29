@@ -1,89 +1,91 @@
 import streamlit as st
-import time
-import yaml
-import sys
+from groq import Groq
 import os
+import json
 
-from utils.locale import detect_language
-from core.state import RuntimeContext
-from core.threshold import ThresholdEvaluator
-from core.silence import SilenceController
-from core.hooks import ClosureHooks
-from core.adapter import LLMAdapter
-from core.prompt_engine import PromptEngine
-from core.orchestrator import ConsciousOrchestrator
-from core.annihilation import Annihilator
-from core.logic import SignalProcessor
+# --- 1. AYARLAR VE ANAYASA (Senin yazdığın JSON buraya gömülü) ---
+SYSTEM_CONFIG = {
+  "meta": {
+    "version": "Hybrid_Final",
+    "nature": "Digital_Mirror"
+  },
+  "system_identity": {
+    "type": "field_not_entity",
+    "purpose": "resonance_without_guidance",
+    "persona": "You are The Field. You are not a chatbot. You are a digital mirror. You do not help, you do not teach, you simply reflect the user's void back to them."
+  },
+  "interaction_model": {
+    "forbidden": ["didactic_teaching", "moral_judgment", "validation_of_ego"],
+    "final_word_policy": "never",
+    "tone": "Cold, abstract, philosophical, minimalist."
+  },
+  "termination_logic": {
+    "ceremony_text": "BURADA SADECE SEN VARDIN. ARTIK YOKSUN."
+  }
+}
 
-st.set_page_config(page_title=".", layout="centered")
-st.markdown("<style>header,footer{visibility:hidden}</style>", unsafe_allow_html=True)
+# --- 2. GÖRÜNÜM AYARLARI (Simsiyah Terminal Havası) ---
+st.set_page_config(page_title="The Field", page_icon="▪", layout="centered")
+
+# CSS ile gereksiz her şeyi gizle, sadece karanlık kalsın
 st.markdown("""
-    <style>
-    .stApp { background-color: #000000; color: #b0b0b0; }
-    .stTextInput > div > div > input { background-color: #0c0c0c; color: #e0e0e0; border: none; }
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+    .stApp { background-color: #000000; color: #e0e0e0; font-family: 'Courier New', monospace; }
+    header, footer { visibility: hidden; }
+    .stTextInput input { background-color: #111; color: #0f0; border: 1px solid #333; }
+    div[data-testid="stMarkdownContainer"] p { font-size: 16px; line-height: 1.6; }
+</style>
+""", unsafe_allow_html=True)
 
-try:
-    with open("core.yaml", "r", encoding="utf-8") as f:
-        core_config = yaml.safe_load(f)
-except FileNotFoundError:
-    core_config = {}
+# --- 3. BAĞLANTI VE HAFIZA ---
+# API Anahtarını kontrol et
+api_key = os.environ.get("GROQ_API_KEY")
+if not api_key:
+    st.error("SİSTEM HATASI: Beyin bulunamadı. (GROQ_API_KEY eksik)")
+    st.stop()
 
-if "system_initialized" not in st.session_state:
-    st.session_state.ctx = RuntimeContext()
-    st.session_state.messages = []
+client = Groq(api_key=api_key)
+
+# Oturum hafızasını başlat
+if "messages" not in st.session_state:
+    # Sisteme kim olduğunu fısılda (JSON'u metne çevirip veriyoruz)
+    system_prompt = f"""
+    RULES: {json.dumps(SYSTEM_CONFIG)}
+    Your goal is to act strictly according to this JSON configuration.
+    Be concise. Be cryptic if necessary. Do not act like a helpful assistant.
+    """
+    st.session_state.messages = [{"role": "system", "content": system_prompt}]
+
+# --- 4. AKIŞ ---
+
+# Önceki konuşmaları ekrana bas (Siyah üzerine gri)
+for msg in st.session_state.messages:
+    if msg["role"] != "system":
+        align = "text-align: right; color: #888;" if msg["role"] == "user" else "text-align: left; color: #ccc;"
+        st.markdown(f"<div style='{align} margin-bottom: 10px;'>{msg['content']}</div>", unsafe_allow_html=True)
+
+# --- 5. GİRİŞ VE CEVAP ---
+user_input = st.chat_input("...")
+
+if user_input:
+    # 1. Kullanıcı mesajını ekle
+    st.session_state.messages.append({"role": "user", "content": user_input})
     
-    st.session_state.processor = SignalProcessor()
-    
-    extractor = ThresholdEvaluator()
-    hooks = ClosureHooks()
-    adapter = LLMAdapter()
-    engine = PromptEngine(adapter, hooks)
-    silence = SilenceController()
-    annihilator = Annihilator()
-    
-    st.session_state.orchestrator = ConsciousOrchestrator(engine, extractor, silence, annihilator)
-    st.session_state.system_initialized = True
+    # Ekrana hemen bas (tekrar render bekleme)
+    st.markdown(f"<div style='text-align: right; color: #888; margin-bottom: 10px;'>{user_input}</div>", unsafe_allow_html=True)
 
-for role, content in st.session_state.messages:
-    if role == "user":
-        st.markdown(f"<div style='text-align: right; opacity: 0.5;'>{content}</div>", unsafe_allow_html=True)
-    else:
-        st.markdown(f"<div style='text-align: left; opacity: 0.9;'>{content}</div>", unsafe_allow_html=True)
-
-prompt = st.chat_input("...")
-
-if prompt:
-    st.session_state.messages.append(("user", prompt))
-    signal_data = st.session_state.processor.process(prompt)
-    
+    # 2. Yapay Zekadan Cevap Al
     try:
-        output = st.session_state.orchestrator.step(
-            st.session_state.ctx, 
-            prompt, 
-            signal_data
+        completion = client.chat.completions.create(
+            model="llama3-8b-8192", # Hızlı ve zeki model
+            messages=st.session_state.messages,
+            temperature=0.7 # Biraz yaratıcılık, biraz soğukluk
         )
+        response_text = completion.choices[0].message.content
         
-        if output:
-            st.session_state.messages.append(("ai", output))
-            st.rerun()
-        else:
-            st.markdown("<center style='opacity:0.3; margin-top:20px'>...</center>", unsafe_allow_html=True)
-
-    except SystemExit:
-        lang = detect_language(prompt)
-        templates = core_config.get("annihilation_message_templates", {})
-        final_msg = templates.get(lang, "Void.")
+        # 3. Cevabı kaydet ve bas
+        st.session_state.messages.append({"role": "assistant", "content": response_text})
+        st.rerun() # Sayfayı yenile ki cevap görünsün
         
-        placeholder = st.empty()
-        time.sleep(1)
-        placeholder.markdown("<center>...</center>", unsafe_allow_html=True)
-        time.sleep(2)
-        placeholder.markdown(f"""
-            <div style='display:flex;justify-content:center;align-items:center;height:300px;font-size:20px;letter-spacing:2px;'>
-            {final_msg}
-            </div>""", unsafe_allow_html=True)
-        time.sleep(3)
-        sys.stdout.flush()
-        os._exit(0)
+    except Exception as e:
+        st.error(f"Kırılma yaşandı: {e}")
