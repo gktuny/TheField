@@ -1,0 +1,11 @@
+meta:
+  version: "Hybrid_Final_Sealed"
+  state: "Active_Void"
+
+threshold_policy:
+  minimum_required: 2 
+
+annihilation_message_templates:
+  tr: "Burada eskiden bir \"ben\" vardı."
+  en: "There used to be an \"I\" here."
+  default: "There used to be something here."
